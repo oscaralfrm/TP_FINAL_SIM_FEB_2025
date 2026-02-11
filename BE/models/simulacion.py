@@ -25,7 +25,6 @@ class FilaVectorEstado:
         self.ganancia_acumulada = ganancia_acum_anterior + self.ganancia_dia
 
     def to_dict(self):
-        """Convierte el objeto a diccionario para JSON response"""
         return {
             "dia": self.dia,
             "rnd": round(self.rnd, 4),

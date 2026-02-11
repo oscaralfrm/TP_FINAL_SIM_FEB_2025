@@ -208,11 +208,11 @@ const SimulacionForm = ({ onSimular }) => {
                 {/* --- SECCIÓN 4: Visualización --- */}
                 <div className="row mb-3">
                     <div className="col-md-6">
-                        <label className="form-label">Mostrar desde día (j)</label>
+                        <label className="form-label">Mostrar desde día</label>
                         <input type="number" className="form-control" {...register("visualizacion.desde_dia")} />
                     </div>
                     <div className="col-md-6">
-                        <label className="form-label">Cantidad filas a mostrar (i)</label>
+                        <label className="form-label">Cantidad filas a mostrar</label>
                         <input type="number" className="form-control" {...register("visualizacion.cantidad_dias", { max: 500 })} />
                         {errors.visualizacion?.cantidad_dias && <small className="text-danger">Máximo 500 filas</small>}
                     </div>
