@@ -1,52 +1,74 @@
 import React, { useState } from 'react';
-import SimulacionForm from '../components/Simulacion/SimulacionForm';
-import ResultadosGrid from '../components/Simulacion/ResultadosGrid';
-import simulacionService from '../services/simulacion.service';
+import SimulacionForm from '../components/Simulacion/SimulacionForm'; // Ajusta la ruta según tu estructura
+import ResultadosGrid from '../components/Simulacion/ResultadosGrid'; // Ajusta la ruta según tu estructura
+import simulacionService from '../services/simulacion.service'; // Ajusta la ruta
 
 const SimulacionPage = () => {
-    // 1. Estados para manejar los datos y la interfaz
+    // 1. Estados
     const [resultados, setResultados] = useState(null);
+    const [metaData, setMetaData] = useState(null); // Para guardar mejor_politica y tiempo
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('politica_a'); // Para cambiar entre pestañas
+    const [activeTab, setActiveTab] = useState('politica_a');
 
-    // 2. Función que conecta el Formulario con el Backend
+    // Diccionario para nombres amigables
+    const NOMBRES_POLITICAS = {
+        'politica_a': 'Política A (Demanda Anterior)',
+        'politica_b': 'Política B (Cantidad Fija 1)',
+        'politica_c': 'Política C (Cantidad Fija 2)'
+    };
+
+    // 2. Conexión con Backend
     const handleSimular = async (payload) => {
         setLoading(true);
-        setResultados(null); // Limpiar tabla anterior para dar feedback visual de "recarga"
+        setResultados(null);
+        setMetaData(null);
 
         try {
             console.log("📤 Enviando payload:", payload);
             
             // Llamada al servicio
             const response = await simulacionService.postSimulacion(payload);
-            console.log("📥 Respuesta recibida:", response);
+            console.log("📥 Respuesta recibida completa:", response);
 
-            // LÓGICA ROBUSTA DE EXTRACCIÓN DE DATOS
-            // Intentamos encontrar el objeto de resultados en las ubicaciones típicas
-            let dataFinal = null;
+            // LÓGICA DE EXTRACCIÓN BASADA EN TU JSON
+            // Estructura esperada: { data: { mejor_politica: "...", resultados: {...}, tiempo_ejecucion: ... }, success: true }
+            
+            let dataLimpia = null;
+            let metaInfo = {};
 
-            if (response.resultados) {
-                // Caso Ideal: El backend devuelve { resultados: { ... } }
-                dataFinal = response.resultados;
-            } else if (response.data && response.data.resultados) {
-                // Caso Axios: A veces Axios envuelve en un objeto 'data' extra
-                dataFinal = response.data.resultados;
-            } else if (response.politica_a) {
-                // Caso Directo: El backend devolvió directo el objeto de políticas
-                dataFinal = response;
+            // Verificamos si la respuesta viene envuelta en 'data' (común en axios o tu estructura JSON)
+            if (response.data && response.data.resultados) {
+                dataLimpia = response.data.resultados;
+                metaInfo = {
+                    mejor_politica: response.data.mejor_politica,
+                    tiempo_ejecucion: response.data.tiempo_ejecucion
+                };
+            } 
+            // Fallback: Si el backend devuelve directo los resultados
+            else if (response.resultados) {
+                dataLimpia = response.resultados;
+                metaInfo = {
+                    mejor_politica: response.mejor_politica,
+                    tiempo_ejecucion: response.tiempo_ejecucion
+                };
             }
 
-            // Verificamos si encontramos algo válido
-            if (dataFinal && (dataFinal.politica_a || dataFinal.politica_b)) {
-                setResultados(dataFinal);
+            if (dataLimpia) {
+                setResultados(dataLimpia);
+                setMetaData(metaInfo);
+                
+                // Opcional: Cambiar la tab activa automáticamente a la ganadora
+                if (metaInfo.mejor_politica && dataLimpia[metaInfo.mejor_politica]) {
+                    setActiveTab(metaInfo.mejor_politica);
+                }
             } else {
-                console.error("⚠️ Estructura de respuesta desconocida:", response);
-                alert("El servidor respondió, pero no se encontraron los datos de simulación esperados. Revisa la consola.");
+                console.error("⚠️ Estructura no reconocida:", response);
+                alert("No se pudieron leer los resultados. Revisa la consola.");
             }
             
         } catch (error) {
-            console.error("❌ Error en la petición:", error);
-            alert("Error al conectar con el servidor. Asegúrate de que el Backend (Python) esté corriendo.");
+            console.error("❌ Error:", error);
+            alert("Error al conectar con el servidor.");
         } finally {
             setLoading(false);
         }
@@ -56,7 +78,7 @@ const SimulacionPage = () => {
         <div className="container mt-4 mb-5">
             <h2 className="text-center mb-4 border-bottom pb-2">TP Montecarlo - Vendedor de Diarios</h2>
             
-            {/* 3. Renderizamos el FORMULARIO */}
+            {/* 3. Formulario */}
             <div className="row justify-content-center">
                 <div className="col-12">
                     <SimulacionForm onSimular={handleSimular} />
@@ -65,90 +87,76 @@ const SimulacionPage = () => {
 
             <hr className="my-5" />
 
-            {/* Spinner de carga */}
+            {/* Spinner */}
             {loading && (
-                <div className="text-center py-4">
+                <div className="text-center py-5">
                     <div className="spinner-border text-primary" style={{width: '3rem', height: '3rem'}} role="status">
                         <span className="visually-hidden">Cargando...</span>
                     </div>
-                    <p className="mt-2 text-muted fs-5">Procesando simulación...</p>
+                    <p className="mt-2 text-muted fs-5">Simulando escenarios...</p>
                 </div>
             )}
 
-            {/* 4. Renderizamos la GRILLA DE RESULTADOS (Solo si hay datos y no carga) */}
+            {/* 4. RESULTADOS */}
             {resultados && !loading && (
-                <div className="card shadow animate__animated animate__fadeIn">
-                    <div className="card-header bg-light">
-                        <ul className="nav nav-tabs card-header-tabs">
-                            {/* Pestaña A */}
-                            {resultados.politica_a && (
-                                <li className="nav-item">
-                                    <button 
-                                        className={`nav-link ${activeTab === 'politica_a' ? 'active fw-bold' : 'text-secondary'}`}
-                                        onClick={() => setActiveTab('politica_a')}
-                                    >
-                                        Política A
-                                    </button>
-                                </li>
-                            )}
-                            {/* Pestaña B */}
-                            {resultados.politica_b && (
-                                <li className="nav-item">
-                                    <button 
-                                        className={`nav-link ${activeTab === 'politica_b' ? 'active fw-bold' : 'text-secondary'}`}
-                                        onClick={() => setActiveTab('politica_b')}
-                                    >
-                                        Política B
-                                    </button>
-                                </li>
-                            )}
-                            {/* Pestaña C */}
-                            {resultados.politica_c && (
-                                <li className="nav-item">
-                                    <button 
-                                        className={`nav-link ${activeTab === 'politica_c' ? 'active fw-bold' : 'text-secondary'}`}
-                                        onClick={() => setActiveTab('politica_c')}
-                                    >
-                                        Política C
-                                    </button>
-                                </li>
-                            )}
-                        </ul>
-                    </div>
+                <div className="animate__animated animate__fadeInUp">
                     
-                    <div className="card-body">
-                        {/* Contenido de la Pestaña A */}
-                        {activeTab === 'politica_a' && resultados.politica_a && (
-                            <div className="animate__animated animate__fadeIn">
-                                <div className="alert alert-success d-flex justify-content-between align-items-center">
-                                    <span><strong>Estrategia:</strong> Comprar la demanda del día anterior.</span>
-                                    <span className="fs-5">Ganancia Total: <strong>${resultados.politica_a.ganancia_total}</strong></span>
-                                </div>
-                                <ResultadosGrid vectores={resultados.politica_a.vectores_estado} />
+                    {/* --- BANNER DE LA MEJOR POLÍTICA --- */}
+                    {metaData?.mejor_politica && (
+                        <div className="card text-white bg-success mb-4 shadow-lg">
+                            <div className="card-body text-center">
+                                <h3 className="card-title display-6">
+                                    <i className="bi bi-trophy-fill me-2"></i>
+                                    Estrategia Ganadora
+                                </h3>
+                                <p className="card-text fs-4">
+                                    {NOMBRES_POLITICAS[metaData.mejor_politica] || metaData.mejor_politica}
+                                </p>
+                                <small>
+                                    Tiempo de ejecución: {metaData.tiempo_ejecucion} seg
+                                </small>
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Contenido de la Pestaña B */}
-                        {activeTab === 'politica_b' && resultados.politica_b && (
-                            <div className="animate__animated animate__fadeIn">
-                                <div className="alert alert-primary d-flex justify-content-between align-items-center">
-                                    <span><strong>Estrategia:</strong> Cantidad Fija 1.</span>
-                                    <span className="fs-5">Ganancia Total: <strong>${resultados.politica_b.ganancia_total}</strong></span>
+                    {/* --- PESTAÑAS Y GRILLA --- */}
+                    <div className="card shadow">
+                        <div className="card-header bg-light">
+                            <ul className="nav nav-tabs card-header-tabs">
+                                {Object.keys(resultados).map((key) => (
+                                    <li className="nav-item" key={key}>
+                                        <button
+                                            className={`nav-link ${activeTab === key ? 'active fw-bold' : 'text-secondary'} ${metaData?.mejor_politica === key ? 'text-success' : ''}`}
+                                            onClick={() => setActiveTab(key)}
+                                        >
+                                            {NOMBRES_POLITICAS[key] || key}
+                                            {metaData?.mejor_politica === key && <i className="bi bi-star-fill ms-2 text-warning"></i>}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                        
+                        <div className="card-body">
+                            {resultados[activeTab] ? (
+                                <div className="animate__animated animate__fadeIn">
+                                    <div className="alert alert-secondary d-flex justify-content-between align-items-center">
+                                        <span>
+                                            <strong>Estadísticas:</strong> 
+                                            Promedio: ${resultados[activeTab].ganancia_promedio} | 
+                                            Max: ${resultados[activeTab].ganancia_maxima} | 
+                                            Min: ${resultados[activeTab].ganancia_minima}
+                                        </span>
+                                        <span className="fs-5 badge bg-dark">
+                                            Total: ${resultados[activeTab].ganancia_total.toFixed(2)}
+                                        </span>
+                                    </div>
+                                    <ResultadosGrid vectores={resultados[activeTab].vectores_estado} />
                                 </div>
-                                <ResultadosGrid vectores={resultados.politica_b.vectores_estado} />
-                            </div>
-                        )}
-
-                        {/* Contenido de la Pestaña C */}
-                        {activeTab === 'politica_c' && resultados.politica_c && (
-                            <div className="animate__animated animate__fadeIn">
-                                <div className="alert alert-info d-flex justify-content-between align-items-center">
-                                    <span><strong>Estrategia:</strong> Cantidad Fija 2.</span>
-                                    <span className="fs-5">Ganancia Total: <strong>${resultados.politica_c.ganancia_total}</strong></span>
-                                </div>
-                                <ResultadosGrid vectores={resultados.politica_c.vectores_estado} />
-                            </div>
-                        )}
+                            ) : (
+                                <p className="text-center p-3">Seleccione una política para ver los detalles.</p>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

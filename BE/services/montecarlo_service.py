@@ -75,7 +75,7 @@ class MontecarloService:
         dias_sim = params['dias_simulacion']
 
         # Inicializadores
-        vectores_estado = []  # Solo para la grilla
+        vectores_estado = []
         ganancia_acumulada_global = 0.0
         ganancias_diarias = []  # Para cálculo de desviación estándar y min/max
 
